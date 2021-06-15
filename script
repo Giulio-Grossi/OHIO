@@ -1,0 +1,78 @@
+rm (list = ls (all = TRUE)) # caution: removes everything
+getwd()
+library(haven)
+library(readr)  # for read_csv
+library(knitr)  # for kable
+library(pracma)
+library(forecast)
+library(tseries)
+library(dplyr)
+library(ggplot2)
+#prova=read.csv("https://covid.cdc.gov/covid-data-tracker/COVIDData/getAjaxData?id=vaccination_county_condensed_data")
+cases_county<-read.csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
+state_vax_100<- read_delim("us-daily-covid-vaccine-doses-per-100.csv",
+";", escape_double = FALSE, trim_ws = TRUE)
+vax_county=read.csv("https://data.cdc.gov/resource/8xkx-amqh.csv")
+
+us_vax=read.csv("https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/vaccinations/us_state_vaccinations.csv")
+vax_county <- read_csv("C:/Users/giuli/Downloads/COVID-19_Vaccinations_in_the_United_States_County.csv",
+                                                              col_types = cols(Date = col_datetime(format = "%m/%d/%Y")))
+
+vax_county=subset(vax_county, vax_county$Date>="2021-01-01")
+oh_vax_county=subset(vax_county, vax_county$Recip_State=="OH")
+cuya=subset(oh_vax_county, oh_vax_county$Recip_County=="Cuyahoga County")
+cuya <- cuya[order(cuya$Date),]
+ohio=subset(us_vax, us_vax$location=="Ohio")
+no=ohio[c(90:134),]
+plot(no$daily_vaccinations_per_million)
+hes_county <- read_csv("Vaccine_Hesitancy_for_COVID-19__County_and_local_estimates.csv")
+
+#county by county estimatio
+
+par(mfrow=c(1,1))
+for (i in unique(oh_vax_county$FIPS)){
+  plot(oh_vax_county$Series_Complete_Yes[oh_vax_county$FIPS==i])
+}
+  
+aggregate(vax_county$Series_Complete_Yes, by=list(Category=c(vax_county$Recip_State, vax_county$Date)), FUN=sum)
+
+state=aggregate(x = vax_county$Series_Complete_Yes,                # Specify data column
+          by = list(vax_county$Recip_State, vax_county$Date),              # Specify group indicator
+          FUN = sum)                                                  # Specify function (i.e. sum)
+
+colnames(state)=c("state","date","vax")
+
+oh_vax_county_plot=ggplot(data=oh_vax_county, aes(x=Date, y=Series_Complete_12PlusPop_Pct, group = Recip_County, 
+                                          colour = Recip_County))+
+  theme_bw()+
+  theme(legend.position ="none") +
+  geom_line() +labs(y= "Vax", x = "Day")+
+  ggtitle("Daily Vaxxination by state")
+# geom_point()+
+ # geom_vline(xintercept = 05-13-2021)
+oh_vax_county_plot
+
+
+
+ggplot(state, aes(x=date, y=state, col=variable)) + geom_line()
+
+
+plot(state[,3][state[,1]=="OH"], type="l")
+lines(state[,3][state[,1]=="NY"], type = "l", col="red")
+plot(state[,3][state[,1]=="NY"])
+
+plot(no$people_vaccinated)
+abline(v=32)
+
+### spatial part ###
+
+library(sf)
+library(raster)
+library(dplyr)
+library(spData)
+library(spDataLarge)
+library(tmap)    # for static and interactive maps
+library(leaflet) # for interactive maps
+library(ggplot2) # tidyverse data visualization package
+
+county=st_read("Usa_counties.shp")
